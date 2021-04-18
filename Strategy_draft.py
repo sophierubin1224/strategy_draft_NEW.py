@@ -9,44 +9,42 @@ from scipy.stats.mstats import gmean
 
 N = 5
 alpha = .02
-threshold = .01
+threshold = .001
 lot_size = 100
 
 
 US_data = pd.read_csv('US_data.csv')
 HK_data = pd.read_csv('HK_data.csv')
 
-def GMRR_N(log_returns):
-    ret = []
-    for i in log_returns[:-1]:
-        ret.append(i+1)
-    gmrr = np.prod(ret)** (1 / len(log_returns)) - 1
-    return gmrr
 
 
 #linear regression and GMRR
+##add R^2 back in
 def HK_features(HK_data):
     action = []
-    eod_close_prices = list(HK_data['Low Price'].tail(N))
+    eod_close_prices = np.array(US_data['Low Price'].tail(N))
     index = np.array(list(i for i in range(1, len(eod_close_prices))))
     log_returns = np.array(list(log(i / j) for i, j in zip(eod_close_prices[:N - 1], eod_close_prices[1:])))
-    GMRR = GMRR_N(log_returns)
-    if log_returns[-1] - GMRR > .001:
+    ret = []
+    for i in log_returns[:-1]:
+        ret.append(i+1)
+    GMRR = np.prod(ret)** (1 / len(log_returns)) - 1
+    if log_returns[-1] - GMRR > threshold:
         action.append('BUY')
+    else:
+        action.append('SELL')
     index = index.reshape(1,-1)
     log_returns = log_returns.reshape(1,-1)
     linreg_model = linear_model.LinearRegression()
     linreg_model.fit(index, log_returns)
     modeled_returns = linreg_model.predict(log_returns)
     return [HK_data.Date, linreg_model.coef_[0],
-            linreg_model.intercept_,
-            r2_score(log_returns,
-                    modeled_returns), GMRR, action]
+            linreg_model.intercept_, GMRR, action]
 
 HK_features = HK_data.apply(HK_features, axis=1, result_type='expand')
-HK_features.columns = ["Date", "a", "b", "R2", "GMRR","Action"]
+HK_features.columns = ["Date", "a", "b","GMRR","Action"]
 HK_features.Date = pd.to_datetime(HK_features.Date)
-
+print(HK_features)
 
 # Get available volatility of day-over-day log returns based on closing
 #     # prices for IVV using a window size of N days.
