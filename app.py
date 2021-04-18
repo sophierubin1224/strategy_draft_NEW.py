@@ -6,14 +6,10 @@ import plotly.express as px
 import dash_core_components as dcc
 import dash_html_components as html
 from dash_table import DataTable, FormatTemplate
-from utils import *
-from datetime import date, timedelta
-from math import ceil
+from datetime import date
 from backtest import *
 import numpy as np
 from sklearn import linear_model
-import flake8_strftime
-from statistics import mean
 
 # Create a Dash app
 app = dash.Dash(__name__)

@@ -5,7 +5,6 @@ import pandas as pd
 from math import log, isnan
 from statistics import stdev
 from numpy import repeat
-import plotly
 
 def trading_decision(
         exit_date, response_var, features_and_responses, trading_date, N, n
@@ -48,21 +47,25 @@ def backtest(
     HK_data = pd.read_json(HK_data)
     # Create the features data frame from the bond yields & IVV hist data
 
-    # This function is what we'll apply to every row in bonds_hist.
-    def HK_linreg(prices):
-        prices = HK_data.VWAP
+    # linear regression on log returns
+    def HK_linreg(HK_data):
+        log_returns = []
+        index = []
+        for i in HK_data:
+            log_returns[i] = np.log(HK_data[i+1].VWAP/HK_data[i].VWAP)
+            index[i] = i
         linreg_model = linear_model.LinearRegression()
-        linreg_model.fit(HK_data.Date, prices)
-        modeled_prices = linreg_model.predict(prices)
+        linreg_model.fit(index, log_returns)
+        modeled_returns = linreg_model.predict(log_returns)
         return [HK_data.Date, linreg_model.coef_[0],
                 linreg_model.intercept_,
-                r2_score(prices[1:],
-                        modeled_prices)]
+                r2_score(log_returns[1:],
+                        modeled_returns)]
 
     # apply bonds_fun to every row in bonds_hist to make the features dataframe.
     HK_features = HK_linreg(HK_data)
     HK_features.columns = ["Date", "a", "b", "R2"]
-    HK_features['Date'] = pd.to_datetime(HK_features['Date'])
+    HK_features.Date = pd.to_datetime(HK_features.Date)
 
     # Get available volatility of day-over-day log returns based on closing
     # prices for IVV using a window size of N days.
