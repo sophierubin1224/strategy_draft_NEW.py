@@ -7,22 +7,25 @@ from statistics import stdev
 from scipy.stats.mstats import gmean
 
 
-N = 5
+N = 10
 alpha = .02
 threshold = .001
 lot_size = 100
 
 
 US_data = pd.read_csv('US_data.csv')
+US_data['Date'] = pd.to_datetime(US_data['Date'])
 HK_data = pd.read_csv('HK_data.csv')
+HK_data['Date'] = pd.to_datetime(HK_data['Date'])
 
 
 
 #linear regression and GMRR
 ##add R^2 back in
-def HK_features(HK_data):
+HK_features = []
+for dt in HK_data['Date'][N:]:
+    eod_close_prices = list(HK_data['Last Price'][HK_data['Date'] <= dt].tail(N))
     action = []
-    eod_close_prices = np.array(US_data['Low Price'].tail(N))
     index = np.array(list(i for i in range(1, len(eod_close_prices))))
     log_returns = np.array(list(log(i / j) for i, j in zip(eod_close_prices[:N - 1], eod_close_prices[1:])))
     ret = []
@@ -38,20 +41,20 @@ def HK_features(HK_data):
     linreg_model = linear_model.LinearRegression()
     linreg_model.fit(index, log_returns)
     modeled_returns = linreg_model.predict(log_returns)
-    return [HK_data.Date, linreg_model.coef_[0],
-            linreg_model.intercept_, GMRR, action]
+    row = [dt, linreg_model.intercept_, linreg_model.coef_[0][0],GMRR, action]
+    HK_features.append(row)
 
-HK_features = HK_data.apply(HK_features, axis=1, result_type='expand')
-HK_features.columns = ["Date", "a", "b","GMRR","Action"]
-HK_features.Date = pd.to_datetime(HK_features.Date)
-print(HK_features)
+      #r2_score(log_returns[:N],modeled_returns),
+HK_features = pd.DataFrame(HK_features)
+HK_features.columns = ["Date", "a", "b", "GMRR", "Action"]
+HK_features['Date'] = pd.to_datetime(HK_features['Date'])
+
 
 # Get available volatility of day-over-day log returns based on closing
 #     # prices for IVV using a window size of N days.
 ivv_features = []
-#
 for dt in US_data['Date'][N:]:
-    eod_close_prices = list(US_data['Low Price'][US_data['Date'] <= dt].tail(N))
+    eod_close_prices = list(US_data['Last Price'][US_data['Date'] <= dt].tail(N))
     vol = stdev([
              log(i / j) for i, j in zip(
                  eod_close_prices[:N - 1], eod_close_prices[1:]
